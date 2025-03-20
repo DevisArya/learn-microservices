@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package field;
+
+import "pagination.proto";
+
+option go_package = "genproto/field";
+
+service FieldService {
+    rpc GetFields (pagination.Pagination) returns (GetFieldsResponse);
+    rpc GetField (Id) returns (GetFieldResponse);
+    rpc CreateField (CreateFieldRequest) returns (CreateFieldResponse);
+    rpc UpdateField (UpdateFieldRequest) returns (StatusResponse);
+    rpc DeleteField (Id) returns (StatusResponse);
+}
+
+message Id {
+    string id = 1;
+}
+
+message Field {
+    string id = 1;
+    string name = 2;
+    string type = 3;
+    string description = 4;
+    uint64 price = 5;
+}
+
+message GetFieldsResponse {
+    pagination.Pagination pagination = 1;
+    repeated Field data = 2;
+}
+
+message GetFieldResponse {
+    Field field = 1;
+}
+
+message CreateFieldRequest {
+    string name = 1;
+    string type = 2;
+    string description = 3;
+    uint64 price = 4;
+}
+message CreateFieldResponse {
+    string id = 1;
+    string status = 2;
+    string message = 3;
+}
+
+message UpdateFieldRequest {
+    string id = 1;
+    optional string name = 2;
+    optional string type = 3;
+    optional string description = 4;
+    optional uint64 price = 5;
+}
+
+message StatusResponse {
+    string status = 1;
+    string message = 2;
+}
+
+
+
+
+
+
