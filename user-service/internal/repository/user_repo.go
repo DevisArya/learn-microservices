@@ -13,7 +13,7 @@ type UserRepository interface {
 	Delete(ctx context.Context, tx *gorm.DB, userId uint) error
 	FindById(ctx context.Context, tx *gorm.DB, userId uint) (*entity.User, error)
 	FindByEmail(ctx context.Context, tx *gorm.DB, email string) (bool, error)
-	FindAll(ctx context.Context, tx *gorm.DB) (*[]entity.User, error)
+	FindAll(ctx context.Context, tx *gorm.DB, limit, offset int) (*[]entity.User, *int64, error)
 }
 
 type UserRepositoryImpl struct {
@@ -79,31 +79,21 @@ func (*UserRepositoryImpl) FindByEmail(ctx context.Context, tx *gorm.DB, email s
 }
 
 // FindAll implements UserRepository
-func (*UserRepositoryImpl) FindAll(ctx context.Context, tx *gorm.DB) (*[]entity.User, error) {
+func (*UserRepositoryImpl) FindAll(ctx context.Context, tx *gorm.DB, limit, offset int) (*[]entity.User, *int64, error) {
 
 	var users []entity.User
+	var count int64
 
-	if err := tx.WithContext(ctx).Where("role = ?", "user").Find(&users).Error; err != nil {
-		return nil, err
+	query := tx.WithContext(ctx).Model(&entity.User{}).Where("role = ?", "user")
+
+	if err := query.Count(&count).Error; err != nil {
+		return nil, nil, err
 	}
-	return &users, nil
-}
-
-// GetMyOrder implements UserRepository
-func (*UserRepositoryImpl) GetMyOrder(ctx context.Context, tx *gorm.DB, userId uint, offset int, pageSize int) (*entity.User, error) {
-
-	var user entity.User
-
-	if err := tx.WithContext(ctx).
-		Preload("Transaction", func(db *gorm.DB) *gorm.DB {
-			return db.Order("transaction_time DESC").Limit(pageSize).Offset(offset)
-		}).
-		Preload("Transaction.TransactionDetail").
-		Where("id = ?", userId).
-		First(&user).
-		Error; err != nil {
-		return nil, err
+	if err := query.
+		Limit(limit).
+		Offset(offset).
+		Find(&users).Error; err != nil {
+		return nil, nil, err
 	}
-
-	return &user, nil
+	return &users, &count, nil
 }
