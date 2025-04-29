@@ -13,32 +13,32 @@ import (
 	"gorm.io/gorm"
 )
 
-type UserService interface {
+type UserUseCase interface {
 	Create(ctx context.Context, request *dto.UserCreateRequest, role entity.Role) (*uint, error)
 	UpdatePassword(ctx context.Context, request *dto.UserupdatePasswordRequest, id uint) error
 	UpdateEmail(ctx context.Context, request *dto.UserupdateEmailRequest, id uint) error
 	UpdateProfile(ctx context.Context, request *dto.UserUpdateProfileRequest, id uint) error
 	Delete(ctx context.Context, id uint) error
 	FindById(ctx context.Context, id uint) (*entity.User, error)
-	FindAll(ctx context.Context) (*[]entity.User, error)
+	FindAll(ctx context.Context, limit, page uint32) (*[]entity.User, *dto.PaginationResponse, error)
 }
 
-type UserServiceImpl struct {
+type UserUseCaseImpl struct {
 	UserRepository repository.UserRepository
 	DB             *gorm.DB
 	validate       *validator.Validate
 }
 
-func NewUserService(userRepository repository.UserRepository, DB *gorm.DB, validate *validator.Validate) UserService {
-	return &UserServiceImpl{
+func NewUserUseCase(userRepository repository.UserRepository, DB *gorm.DB, validate *validator.Validate) UserUseCase {
+	return &UserUseCaseImpl{
 		UserRepository: userRepository,
 		DB:             DB,
 		validate:       validate,
 	}
 }
 
-// Create implements UserService
-func (service *UserServiceImpl) Create(ctx context.Context, request *dto.UserCreateRequest, role entity.Role) (*uint, error) {
+// Create implements UserUseCase
+func (service *UserUseCaseImpl) Create(ctx context.Context, request *dto.UserCreateRequest, role entity.Role) (*uint, error) {
 	if err := service.validate.Struct(request); err != nil {
 		return nil, err
 	}
@@ -78,8 +78,8 @@ func (service *UserServiceImpl) Create(ctx context.Context, request *dto.UserCre
 	return id, nil
 }
 
-// UpdatePassword implements UserService
-func (service *UserServiceImpl) UpdatePassword(ctx context.Context, request *dto.UserupdatePasswordRequest, id uint) error {
+// UpdatePassword implements UserUseCase
+func (service *UserUseCaseImpl) UpdatePassword(ctx context.Context, request *dto.UserupdatePasswordRequest, id uint) error {
 	if err := service.validate.Struct(request); err != nil {
 		return err
 	}
@@ -115,8 +115,8 @@ func (service *UserServiceImpl) UpdatePassword(ctx context.Context, request *dto
 	return nil
 }
 
-// UpdateEmail implements UserService
-func (service *UserServiceImpl) UpdateEmail(ctx context.Context, request *dto.UserupdateEmailRequest, id uint) error {
+// UpdateEmail implements UserUseCase
+func (service *UserUseCaseImpl) UpdateEmail(ctx context.Context, request *dto.UserupdateEmailRequest, id uint) error {
 	if err := service.validate.Struct(request); err != nil {
 		return err
 	}
@@ -142,8 +142,8 @@ func (service *UserServiceImpl) UpdateEmail(ctx context.Context, request *dto.Us
 	return nil
 }
 
-// UpdateProfile implements UserService
-func (service *UserServiceImpl) UpdateProfile(ctx context.Context, request *dto.UserUpdateProfileRequest, id uint) error {
+// UpdateProfile implements UserUseCase
+func (service *UserUseCaseImpl) UpdateProfile(ctx context.Context, request *dto.UserUpdateProfileRequest, id uint) error {
 	if err := service.validate.Struct(request); err != nil {
 		return err
 	}
@@ -164,8 +164,8 @@ func (service *UserServiceImpl) UpdateProfile(ctx context.Context, request *dto.
 	return nil
 }
 
-// Delete implements UserService
-func (service *UserServiceImpl) Delete(ctx context.Context, id uint) error {
+// Delete implements UserUseCase
+func (service *UserUseCaseImpl) Delete(ctx context.Context, id uint) error {
 	tx := service.DB.Begin()
 	defer helper.CommitOrRollback(tx)
 
@@ -180,8 +180,8 @@ func (service *UserServiceImpl) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
-// FindById implements UserService
-func (service *UserServiceImpl) FindById(ctx context.Context, id uint) (*entity.User, error) {
+// FindById implements UserUseCase
+func (service *UserUseCaseImpl) FindById(ctx context.Context, id uint) (*entity.User, error) {
 	tx := service.DB.Begin()
 	defer helper.CommitOrRollback(tx)
 
@@ -193,15 +193,24 @@ func (service *UserServiceImpl) FindById(ctx context.Context, id uint) (*entity.
 	return user, nil
 }
 
-// FindAll implements UserService
-func (service *UserServiceImpl) FindAll(ctx context.Context) (*[]entity.User, error) {
+// FindAll implements UserUseCase
+func (service *UserUseCaseImpl) FindAll(ctx context.Context, limit, page uint32) (*[]entity.User, *dto.PaginationResponse, error) {
 	tx := service.DB.Begin()
 	defer helper.CommitOrRollback(tx)
 
-	users, err := service.UserRepository.FindAll(ctx, tx)
+	offset := (page - 1) * limit
+
+	users, totalRecord, err := service.UserRepository.FindAll(ctx, tx, int(limit), int(offset))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return users, nil
+	totalPage := uint32(*totalRecord) / limit
+
+	return users, &dto.PaginationResponse{
+		CurrentPage: page,
+		Limit:       limit,
+		TotalRecord: uint32(*totalRecord),
+		TotalPage:   totalPage,
+	}, nil
 }
